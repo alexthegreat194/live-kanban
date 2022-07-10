@@ -1,9 +1,13 @@
 const express = require('express');
 const { engine } = require('express-handlebars');
+const { createServer } = require("http");
+const { Server } = require("socket.io");
 
 require('dotenv').config();
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 
 app.engine('.hbs', engine({extname: '.hbs'}));
 app.set('view engine', '.hbs');
