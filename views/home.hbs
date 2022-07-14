@@ -1,1 +1,236 @@
-<h1 class="font-bold text-2xl">Thing</h1>
+
+<script>
+    var socket = io();
+    var boards = [];
+
+    const createCard = (card, color) => {
+        const cardElement = document.createElement('div');
+        const cardContent = document.createElement('div');
+        const name = document.createElement('h2');
+        const description = document.createElement('p');
+
+        // right and left arrows
+        const arrowStyles = 'bg-gray-300/25 text-black rounded-sm px-3 py-1 hover:bg-blue-700 hover:border-blue-800 border h-full';
+        const rightArrow = document.createElement('button');
+        rightArrow.innerHTML = '>';
+        rightArrow.classList = arrowStyles;
+        const leftArrow = document.createElement('button');
+        leftArrow.innerHTML = '<';
+        leftArrow.classList = arrowStyles;
+        const spacer = document.createElement('div');
+        
+
+        cardElement.classList = 'flex flex-row justify-between items-center rounded border w-full ' + ' bg-' + color;
+
+        name.innerText = card.name;
+        description.innerText = card.description;
+
+        const deleteCard = document.createElement('button');
+        deleteCard.innerText = 'Delete';
+        deleteCard.classList = 'bg-red-500 text-white text-sm rounded px-3 py-1 hover:bg-red-700 hover:border-red-800 border h-full';
+        deleteCard.onclick = () => {
+            socket.emit('delete-card', {
+                boardId: card.boardId,
+                cardId: card.id
+            });
+        };
+
+        cardContent.appendChild(name);
+        cardContent.appendChild(deleteCard);
+
+        cardContent.className = 'flex flex-row justify-between content-center';
+
+        // add arrows
+        if (card.status == 'todo') {
+            cardElement.appendChild(spacer);
+            cardElement.appendChild(cardContent);
+            cardElement.appendChild(rightArrow);
+            rightArrow.onclick = () => {
+                console.log('right arrow clicked');
+                socket.emit('edit-card', {
+                    boardId: card.boardId,
+                    cardId: card.id,
+                    status: 'in-progress'
+                });
+            };
+            
+        } else if (card.status == 'in-progress') {
+            cardElement.appendChild(leftArrow);
+            leftArrow.onclick = () => {
+                socket.emit('edit-card', {
+                    boardId: card.boardId,
+                    cardId: card.id,
+                    status: 'todo'
+                });
+            };
+        
+            cardElement.appendChild(cardContent);
+            cardElement.appendChild(rightArrow);
+            rightArrow.onclick = () => {
+                socket.emit('edit-card', {
+                    boardId: card.boardId,
+                    cardId: card.id,
+                    status: 'done'
+                });
+            };
+        } else if (card.status == 'done') {
+            cardElement.appendChild(leftArrow);
+            leftArrow.onclick = () => {
+                socket.emit('edit-card', {
+                    boardId: card.boardId,
+                    cardId: card.id,
+                    status: 'in-progress'
+                });
+            };
+            cardElement.appendChild(cardContent);
+            cardElement.appendChild(spacer);
+        }
+
+        return cardElement;
+    };
+
+    const renderBoards = () => {
+        const boardInsert = document.getElementById('board-insert');
+        boardInsert.innerHTML = '';
+        
+        boards.forEach((board) => {
+            const boardElement = document.createElement('div');
+            
+            const header = document.createElement('div');
+            const boardCards = document.createElement('div');
+
+            const todo = document.createElement('div');
+            const inProgress = document.createElement('div');
+            const done = document.createElement('div');
+
+            const todoHeader = document.createElement('h3');
+            const inProgressHeader = document.createElement('h3');
+            const doneHeader = document.createElement('h3');
+
+            const headerStyles = 'font-bold text-xl';
+            todoHeader.className = headerStyles;
+            inProgressHeader.className = headerStyles;
+            doneHeader.className = headerStyles;
+
+            todoHeader.innerText = 'ToDo';
+            inProgressHeader.innerText = 'In Progress';
+            doneHeader.innerText = 'Done';
+
+            todo.appendChild(todoHeader);
+            inProgress.appendChild(inProgressHeader);
+            done.appendChild(doneHeader);
+
+            board.cards.forEach((card) => {
+                if (card.status === 'todo') {
+                    todo.appendChild(createCard(card, 'red-300'));
+                } else if (card.status === 'in-progress') {
+                    inProgress.appendChild(createCard(card, 'yellow-200'));
+                } else if (card.status === 'done') {
+                    done.appendChild(createCard(card, 'green-300'));
+                }
+            });
+
+            // create new card form for each board
+            const newCardForm = document.createElement('form');
+            const newCardName = document.createElement('input');
+            const submitCard = document.createElement('input');
+
+            newCardForm.className = 'p-2 m-2 flex gap-4';
+            newCardName.className = 'w-full p-2 shadow';
+            submitCard.className = 'text-white bg-blue-700 rounded p-2 hover:bg-blue-600 hover:cursor-pointer';
+            
+            newCardName.type = 'text';
+            newCardName.placeholder = 'New Card Name';
+            
+            submitCard.type = 'submit';
+            submitCard.value = 'Add Card';
+            
+            newCardForm.appendChild(newCardName);
+            newCardForm.appendChild(submitCard);
+            newCardForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                socket.emit('add-card', {
+                    boardId: board.id,
+                    name: newCardName.value,
+                    status: 'todo'
+                });
+                newCardName.value = '';
+            });
+            todo.appendChild(newCardForm);
+
+            const headerText = document.createElement('h1');
+            const headerDelete = document.createElement('button');
+
+            headerText.innerText = board.name;
+            headerText.className = headerStyles;
+            headerDelete.innerText = 'Delete';
+
+            headerDelete.className = 'bg-red-500 text-white text-sm rounded px-3 py-1 hover:bg-red-700 hover:border-red-800 border h-full';
+            headerDelete.onclick = () => {
+                socket.emit('delete-board', {
+                    boardId: board.id
+                });
+            };
+
+            header.appendChild(headerText);
+            header.appendChild(headerDelete);
+
+            header.className = 'flex flex-row justify-between content-center';
+            
+            boardElement.classList.add('flex', 'flex-col', 'p-4', 'bg-gray-100', 'border-2', 'border-gray-200');
+
+            boardCards.classList.add('grid', 'grid-cols-3', 'p-4', 'bg-white');
+            
+            boardCards.appendChild(todo);
+            boardCards.appendChild(inProgress);
+            boardCards.appendChild(done);
+
+            boardElement.appendChild(header);
+            boardElement.appendChild(boardCards);
+
+            boardInsert.appendChild(boardElement);
+        })
+    }
+</script>
+
+<div id="boards">
+    <div id="board-insert">
+
+    </div>
+    <form id="new-board" class=" p-2 m-2 flex gap-4">
+        <input id="new-board-input" type="text" class="w-full p-2 shadow" placeholder="Name">
+        <input type="submit" value="Add" class="text-white bg-blue-700 rounded p-2 hover:bg-blue-600 hover:cursor-pointer">
+    </form>
+</div>
+<script>
+    document.getElementById('new-board').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const name = document.getElementById('new-board-input').value;
+        console.log('name', name);
+        const data = { name };
+        socket.emit('new-board', data);
+    });
+</script>
+
+<script>
+
+    socket.on('connect', (data) => {
+        console.log('connected', data);
+        
+        socket.on('disconnect', () => {
+            console.log('disconnected');
+        });
+
+        socket.on('boards', (data) => {
+            boards = data;
+            console.log('boards', boards);
+            renderBoards();
+        });
+
+        socket.on('dev', (message) => {
+            console.log(message);
+        });
+    });
+
+
+</script>
